@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Внутреннее устройство компьютера</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg-1: #030417;
+      --bg-2: #07102a;
+      --neon-cyan: #2ee6ff;
+      --neon-blue: #3b82f6;
+      --panel: rgba(255,255,255,0.03);
+      --glass-border: rgba(255,255,255,0.06);
+      --accent: linear-gradient(90deg,var(--neon-cyan),var(--neon-blue));
+      --radius: 16px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(46,230,255,0.06), transparent 12%),
+                  radial-gradient(900px 500px at 90% 90%, rgba(59,130,246,0.06), transparent 12%),
+                  linear-gradient(180deg,var(--bg-1),var(--bg-2));
+      color:#e6eef8;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      padding:32px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+
+    /* floating neon blobs */
+    .blobs{position:fixed;inset:0;pointer-events:none;z-index:0}
+    .blob{position:absolute;border-radius:50%;filter:blur(60px);opacity:0.6;mix-blend-mode:screen}
+    .blob.b1{width:520px;height:520px;left:-120px;top:-140px;background:linear-gradient(135deg,#00f0ff, #3b82f6);animation:blobMove 10s ease-in-out infinite}
+    .blob.b2{width:420px;height:420px;right:-100px;bottom:-120px;background:linear-gradient(135deg,#7c3aed,#06b6d4);animation:blobMove 12s ease-in-out infinite;animation-delay:2s}
+    @keyframes blobMove{0%{transform:translate(0,0) scale(1)}33%{transform:translate(18px,-12px) scale(1.06)}66%{transform:translate(-12px,18px) scale(0.96)}100%{transform:translate(0,0) scale(1)}}
+
+    /* container */
+    .card{
+      position:relative;
+      z-index:2;
+      width:100%;
+      max-width:1100px;
+      border-radius:calc(var(--radius) + 8px);
+      padding:28px;
+      background:linear-gradient(180deg, rgba(8,10,20,0.7), rgba(7,12,30,0.55));
+      border:1px solid rgba(255,255,255,0.03);
+      box-shadow: 0 10px 40px rgba(2,6,23,0.7), inset 0 -2px 10px rgba(59,130,246,0.02);
+      backdrop-filter: blur(6px) saturate(120%);
+    }
+
+  
+
+
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .brand{display:flex;align-items:center;gap:14px}
+    .logo{width:56px;height:56px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;box-shadow:0 6px 30px rgba(59,130,246,0.12)}
+    .logo svg{filter:drop-shadow(0 6px 18px rgba(46,230,255,0.12))}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:0;color:rgba(230,238,248,0.7);font-size:13px}
+
+    /* layout */
+    .body{display:grid;grid-template-columns:1fr 320px;gap:20px;margin-top:20px}
+
+    .question-panel{padding:22px;border-radius:14px;background:var(--panel);border:1px solid var(--glass-border);backdrop-filter: blur(8px)}
+    .meta{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .meta .progresstext{font-size:13px;color:rgba(230,238,248,0.75)}
+    .qtext{font-weight:700;font-size:22px;line-height:1.15;margin-bottom:10px;}
+    .hint{font-size:13px;color:rgba(230,238,248,0.7)}
+
+    .options{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+    .opt{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border-radius:12px;border:1px solid transparent;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.006));cursor:pointer;transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease}
+    .opt:focus{outline:none;box-shadow:0 6px 30px rgba(59,130,246,0.12);transform:translateY(-3px)}
+    .opt:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(59,130,246,0.08)}
+    .opt .left{display:flex;gap:12px;align-items:center}
+    .badge{min-width:42px;height:42px;border-radius:10px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));display:flex;align-items:center;justify-content:center;font-weight:700}
+    .opt .text{font-size:15px}
+
+    .opt.selected{border-color:rgba(59,130,246,0.28);box-shadow:0 10px 40px rgba(59,130,246,0.06);}
+    .opt.correct{border-color:rgba(34,197,94,0.28);box-shadow:0 10px 40px rgba(34,197,94,0.04);}
+    .opt.wrong{border-color:rgba(239,68,68,0.28);box-shadow:0 10px 40px rgba(239,68,68,0.04);}
+
+    .controls{display:flex;gap:10px;align-items:center;margin-top:18px}
+    .btn{padding:10px 16px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));cursor:pointer}
+    .btn.primary{background:var(--accent);color:#04102b;border:none;box-shadow:0 8px 30px rgba(46,230,255,0.08)}
+    .btn.ghost{background:transparent}
+    .btn:disabled{opacity:0.45;cursor:not-allowed}
+
+    aside.stats{padding:18px;border-radius:12px;background:var(--panel);border:1px solid var(--glass-border);backdrop-filter: blur(6px);height:100%}
+    .stats h3{margin:0 0 8px 0}
+    .statrow{display:flex;justify-content:space-between;font-size:13px;color:rgba(230,238,248,0.78);padding:8px 0;border-bottom:1px dashed rgba(255,255,255,0.02)}
+
+    /* result */
+    .result{padding:18px;border-radius:12px;background:linear-gradient(180deg, rgba(3,6,24,0.6), rgba(8,12,30,0.45));border:1px solid rgba(255,255,255,0.03)}
+    .bigscore{font-size:36px;font-weight:800}
+    .feedback{font-size:14px;color:rgba(230,238,248,0.8)}
+
+    /* small screens */
+    @media (max-width:880px){
+      .body{grid-template-columns:1fr;}
+      aside.stats{order:2}
+    }
+
+    /* little micro interactions */
+    .pulse{animation:pulse 1.8s infinite}
+    @keyframes pulse{0%{transform:scale(1)}50%{transform:scale(1.02)}100%{transform:scale(1)}}
+
+    /* tiny progress bar */
+    .barwrap{height:8px;background:rgba(255,255,255,0.02);border-radius:999px;overflow:hidden}
+    .bar{height:100%;background:linear-gradient(90deg,var(--neon-cyan),var(--neon-blue));width:0%;transition:width .6s cubic-bezier(.2,.9,.2,1)}
+
+    /* scroll for answers breakdown */
+    .answers-list{max-height:280px;overflow:auto;padding-right:6px}
+    .answer-item{padding:10px;border-radius:10px;margin-bottom:8px;border:1px solid rgba(255,255,255,0.02);background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent)}
+  
+    .qtext,
+    .meta .progresstext,
+    .options .opt,
+    .options .opt .text,
+    .options .opt .badge,
+    header h1,
+    header p.lead {
+      color: #ffffff !important;
+      -webkit-text-fill-color: #ffffff !important; /* для некоторых мобильных браузеров */
+    }
+
+    /* чуть неоновое свечение для заголовка вопроса (опционально) */
+    .qtext {
+      text-shadow: 0 2px 18px rgba(46,230,255,0.08), 0 1px 6px rgba(59,130,246,0.06);
+    }
+
+    /* контрастные буквы A/B/C внутри бейджа */
+    .options .opt .badge {
+      color: #021027 !important;
+      font-weight: 700;
+    }
+
+    /* если кнопки всё ещё наследуют цвет из system stylesheet, принудительно задаём цвет содержимого */
+    .options .opt,
+    .options .opt * {
+      color: #ffffff !important;
+    }
+
+  
+  </style>
+</head>
+<body>
+  <div class="blobs" aria-hidden="true">
+    <div class="blob b1"></div>
+    <div class="blob b2"></div>
+  </div>
+
+  <main class="card" role="main">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 12h18" stroke="white" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/>
+            <path d="M12 3v18" stroke="white" stroke-width="1.2" stroke-linecap="round" opacity="0.9"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Внутреннее устройство компьютера</h1>
+          <p class="lead">20 вопросов. Выберите один ответ. Клавиши 1/2/3 для выбора, Enter — следующий.</p>
+        </div>
+      </div>
+
+      <div style="text-align:right">
+        <div style="font-size:13px;color:rgba(230,238,248,0.8)">Вопрос <span id="q-index">1</span>/20</div>
+        <div style="font-size:12px;color:rgba(230,238,248,0.6)">Прогресс: <span id="q-percent">0%</span></div>
+      </div>
+    </header>
+
+    <section class="body" aria-live="polite">
+      <div>
+        <div class="question-panel" id="quiz">
+          <div class="meta">
+            <div class="progresstext">Вопрос</div>
+            <div class="barwrap" style="width:45%"><div class="bar" id="progress"></div></div>
+          </div>
+
+          <div class="qtext" id="q-text">Загрузка...</div>
+          <div class="hint" id="q-hint">Подсказка будет здесь</div>
+
+          <div class="options" id="opts" role="list">
+            <!-- options injected here -->
+          </div>
+
+          <div class="controls">
+            <button class="btn ghost" id="prevBtn" title="Назад (Shift+Tab)">Назад</button>
+            <div style="flex:1"></div>
+            <button class="btn primary" id="nextBtn" title="Далее (Enter)">Следующий</button>
+          </div>
+        </div>
+
+        <div style="height:18px"></div>
+
+        <div id="resultWrap" style="display:none">
+          <div class="result" id="resultCard">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div class="bigscore" id="scoreVal">0 / 20</div>
+                <div class="feedback" id="feedback">—</div>
+              </div>
+              <div>
+                <button class="btn" id="shareBtn">Скопировать результат</button>
+                <button class="btn primary" id="restartBtn">Пройти заново</button>
+              </div>
+            </div>
+
+            <div style="margin-top:12px;color:rgba(230,238,248,0.75);font-size:13px">Разбор ответов:</div>
+            <div class="answers-list" id="answersList"></div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="stats" aria-label="Статистика">
+        <h3>Статистика</h3>
+        <div class="statrow"><div>Отвечено</div><div id="stat-answered">0</div></div>
+        <div class="statrow"><div>Правильно</div><div id="stat-correct">0</div></div>
+        <div class="statrow"><div>Осталось</div><div id="stat-left">20</div></div>
+
+        <div style="height:10px"></div>
+        <div style="font-size:13px;color:rgba(230,238,248,0.7)">Поддержка клавиатуры:</div>
+        <ul style="font-size:13px;color:rgba(230,238,248,0.6)">
+          <li>1 / 2 / 3 — выбрать ответ</li>
+          <li>Enter — следующий</li>
+        </ul>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    // Questions array — 20 items
+    const QUESTIONS = [
+      { q: "Что такое кэш в процессоре?", opts: ["Небольшой быстрый буфер между процессором и оперативной памятью","Внешний накопитель для резервного копирования данных","Тип оперативной памяти с более высокой ёмкостью"], a:0, hint: "Кэш (L1/L2/L3) — сверхбыстрая память для часто используемых данных." },
+      { q: "За что отвечает южный мост (Southbridge) на материнской плате?", opts: ["За высокоскоростные интерфейсы CPU и PCIe","За периферийные контроллеры: SATA, USB, аудио и т.д.","За управление напряжением процессора"], a:1, hint: "Southbridge отвечает за медленные периферийные интерфейсы." },
+      { q: "Что такое тактовая частота (clock) CPU?", opts: ["Максимальное количество ядер в процессоре","Частота, с которой процессор выполняет базовые циклы инструкций","Объём кэша L3"], a:1, hint: "Такт — базовая единица времени для выполнения частей инструкции." },
+      { q: "Что такое TDP у процессора?", opts: ["Пиковая вычислительная производительность в FLOPS","Максимальная допустимая температура кристалла","Тепловая мощность, которую процессор рассеивает (Thermal Design Power)"], a:2, hint: "TDP — ориентир для системы охлаждения." },
+      { q: "Что делает контроллер прерываний (interrupt controller)?", opts: ["Отвечает за питание ядра CPU","Принимает аппаратные запросы и сообщает CPU о событиях","Управляет видеосигналом на дисплей"], a:1, hint: "Упорядочивает и передаёт прерывания CPU." },
+      { q: "Что такое виртуальная память?", opts: ["Использование флеш-накопителя как дополнительной физической памяти","Абстракция, позволяющая процессу иметь собственное адресное пространство","Особый режим процессора для многопоточности"], a:1, hint: "Виртуальная память даёт каждому процессу своё логическое адресное пространство." },
+      { q: "Что такое DMA (Direct Memory Access)?", opts: ["Протокол удалённого доступа к файловой системе","Механизм, позволяющий устройствам обмениваться данными с памятью без участия CPU","Специальный тип кэша на SSD"], a:1, hint: "DMA позволяет устройствам читать/писать в RAM без вмешательства CPU." },
+      { q: "Для чего нужен чипсет на материнской плате?", opts: ["Оптимизирует графическое ядро процессора","Координирует взаимодействие между CPU, памятью, шинами и периферией","Управляет только энергопотреблением системы"], a:1, hint: "Чипсет маршрутизирует данные и задаёт доступные интерфейсы." },
+      { q: "Что такое RAID?", opts: ["Набор технологий для объединения нескольких дисков с целью отказоустойчивости или производительности","Спецификация беспроводного соединения","Метод сжатия файлов на файловой системе"], a:0, hint: "RAID объединяет диски: mirroring, striping, parity и т.д." },
+      { q: "Что такое ECC-память?", opts: ["Память с исправлением ошибок (Error-Correcting Code)","Память с расширенной кэш-памятью","Тип видеопамяти для игровых GPU"], a:0, hint: "ECC может обнаруживать и корректировать одиночные ошибки битов." },
+      { q: "Что такое форм-фактор материнской платы (например, ATX)?", opts: ["Набор правил по размерам, расположению отверстий и интерфейсам","Тип BIOS, используемый платой","Максимальное количество поддерживаемой оперативной памяти"], a:0, hint: "Форм-фактор определяет физические размеры и расположение крепежа." },
+      { q: "Что делает контроллер памяти (Memory Controller)?", opts: ["Устанавливает тактовую частоту видеокарты","Организует чтение/запись между CPU и RAM","Управляет сетевыми интерфейсами"], a:1, hint: "Контроллер памяти управляет доступом к RAM (часто встроен в CPU)." },
+      { q: "Что такое шинная архитектура (bus) на плате?", opts: ["Физические и логические линии для передачи данных между компонентами","Система охлаждения для элементов платы","Тип разъёма для подключения монитора"], a:0, hint: "Шина передаёт адреса, данные и сигналы управления." },
+      { q: "Что обозначает понятие 'burst' в памяти?", opts: ["Серия последовательных быстрых операций чтения/записи","Отдельный модуль питания","Формат файловой системы"], a:0, hint: "Burst — несколько слов за один адресный цикл, повышая эффективность." },
+      { q: "Что такое BIOS/UEFI?", opts: ["Набор утилит для дефрагментации жесткого диска","Низкоуровневая прошивка, инициализирующая аппарат и загружающая ОС","Тип оперативной памяти"], a:1, hint: "BIOS/UEFI проверяет оборудование и запускает загрузчик ОС." },
+      { q: "Что такое контроллер питания на материнской плате (VRM)?", opts: ["Схема преобразования и стабилизации напряжения для CPU и других компонентов","Устройство для ускорения работы дисков","Модуль звуковой обработки"], a:0, hint: "VRM даёт стабильное питание CPU и важно при разгоне." },
+      { q: "Что такое Northbridge в классической компоновке?", opts: ["Часть чипсета, отвечающая за быстрые шины (CPU, RAM, GPU)","Устройство для звуковой обработки","Тип охлаждения процессора"], a:0, hint: "Northbridge — высокоскоростные интерфейсы (в современном мире функции часто в CPU)." },
+      { q: "Что такое контроллер NVMe на SSD?", opts: ["Спецификация для сетевых адаптеров","Логика и интерфейс, управляющие работой NVMe SSD и шиной PCIe","Сжатие данных на лету"], a:1, hint: "NVMe-контроллер управляет очередями и взаимодействием с PCIe." },
+      { q: "Что такое POST (Power-On Self Test)?", opts: ["Механизм энергосбережения процессора","Набор тестов, выполняемых прошивкой при включении компьютера","Тип разъёма для питания материнской платы"], a:1, hint: "POST проверяет базовые компоненты перед загрузкой ОС." },
+      { q: "Что такое контроллер PCIe?", opts: ["Интерфейс и логика передачи данных по шине PCI Express между устройствами и CPU","Система охлаждения для видеокарт","Протокол для беспроводной передачи данных"], a:0, hint: "PCIe контролирует пакеты, lane'ы и управление связью для периферии." }
+    ];
+
+    // State
+    let idx = 0;
+    const total = QUESTIONS.length;
+    const answers = Array(total).fill(null); // user answers indices
+
+    // Elements
+    const qIndexEl = document.getElementById('q-index');
+    const qPercentEl = document.getElementById('q-percent');
+    const qTextEl = document.getElementById('q-text');
+    const qHintEl = document.getElementById('q-hint');
+    const optsEl = document.getElementById('opts');
+    const progressEl = document.getElementById('progress');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const resultWrap = document.getElementById('resultWrap');
+    const resultCard = document.getElementById('resultCard');
+    const scoreVal = document.getElementById('scoreVal');
+    const feedbackEl = document.getElementById('feedback');
+    const answersList = document.getElementById('answersList');
+    const statAnswered = document.getElementById('stat-answered');
+    const statCorrect = document.getElementById('stat-correct');
+    const statLeft = document.getElementById('stat-left');
+    const shareBtn = document.getElementById('shareBtn');
+    const restartBtn = document.getElementById('restartBtn');
+
+    function renderQuestion() {
+      const item = QUESTIONS[idx];
+      qIndexEl.textContent = idx + 1;
+      const pct = Math.round((idx / total) * 100);
+      qPercentEl.textContent = pct + '%';
+      progressEl.style.width = ((idx / total) * 100) + '%';
+
+      qTextEl.textContent = item.q;
+      qHintEl.textContent = item.hint || '';
+
+      // options
+      optsEl.innerHTML = '';
+      item.opts.forEach((t,i)=>{
+        const btn = document.createElement('button');
+        btn.className = 'opt';
+        btn.setAttribute('role','listitem');
+        btn.tabIndex = 0;
+        btn.dataset.idx = i;
+        btn.innerHTML = `<div class="left"><div class="badge">${String.fromCharCode(65+i)}</div><div class="text">${t}</div></div><div class="right" aria-hidden></div>`;
+        // mark selected if any
+        if (answers[idx] !== null) {
+          btn.classList.toggle('selected', answers[idx] === i);
+          if (answers[idx] !== QUESTIONS[idx].a) {
+            if (answers[idx] === i) btn.classList.add('wrong');
+            if (i === QUESTIONS[idx].a) btn.classList.add('correct');
+          } else {
+            if (i === QUESTIONS[idx].a) btn.classList.add('correct');
+          }
+        }
+        btn.addEventListener('click', ()=> selectOption(i, btn));
+        optsEl.appendChild(btn);
+      });
+
+      // disable prev if first
+      prevBtn.disabled = idx === 0;
+      // change next text on last
+      nextBtn.textContent = idx === total -1 ? 'Завершить' : 'Следующий';
+
+      updateStats();
+    }
+
+    function selectOption(i, btnEl) {
+      answers[idx] = i;
+      // visually mark
+      Array.from(optsEl.children).forEach(c=>{
+        c.classList.toggle('selected', Number(c.dataset.idx) === i);
+        c.classList.remove('wrong','correct');
+      });
+      // show correct/wrong immediately
+      const correct = QUESTIONS[idx].a;
+      if (i === correct) {
+        btnEl.classList.add('correct');
+      } else {
+        btnEl.classList.add('wrong');
+        // highlight correct
+        const correctBtn = Array.from(optsEl.children).find(c=>Number(c.dataset.idx)===correct);
+        if (correctBtn) correctBtn.classList.add('correct');
+      }
+      updateStats();
+    }
+
+    function updateStats(){
+      const answered = answers.filter(a=>a!==null).length;
+      const correct = answers.reduce((s,a,i)=> s + (a===QUESTIONS[i].a?1:0), 0);
+      statAnswered.textContent = answered;
+      statCorrect.textContent = correct;
+      statLeft.textContent = total - (idx + 1);
+    }
+
+    function next() {
+      // if nothing selected for this question, still allow moving on (user choice)
+      if (idx < total -1) {
+        idx++;
+        renderQuestion();
+        animateFlash();
+      } else {
+        // finish
+        showResult();
+      }
+    }
+
+    function prev() {
+      if (idx > 0) { idx--; renderQuestion(); }
+    }
+
+    function showResult(){
+      const score = answers.reduce((s,a,i)=> s + (a===QUESTIONS[i].a?1:0), 0);
+      scoreVal.textContent = `${score} / ${total}`;
+      const pct = Math.round((score/total)*100);
+      let fb = 'Нужно потренироваться';
+      if (pct === 100) fb = 'Отлично! Вы эксперт!';
+      else if (pct >= 75) fb = 'Очень хорошо!';
+      else if (pct >= 50) fb = 'Неплохо, можно подтянуть';
+      feedbackEl.textContent = `${pct}% — ${fb}`;
+
+      // answers breakdown
+      answersList.innerHTML = '';
+      QUESTIONS.forEach((q,i)=>{
+        const given = answers[i];
+        const correct = q.a;
+        const ok = given === correct;
+        const itm = document.createElement('div');
+        itm.className = 'answer-item';
+        itm.innerHTML = `<div style="font-size:13px;font-weight:600">${i+1}. ${q.q}</div>
+          <div style="margin-top:6px;font-size:13px">Ваш ответ: <strong>${given===null? '—' : q.opts[given]}</strong></div>
+          <div style="font-size:12px;color:rgba(230,238,248,0.7);margin-top:4px">Правильный: ${q.opts[correct]}</div>`;
+        if (ok) itm.style.borderLeft = '4px solid rgba(34,197,94,0.6)'; else itm.style.borderLeft = '4px solid rgba(239,68,68,0.6)';
+        answersList.appendChild(itm);
+      });
+
+      // show result area
+      document.getElementById('quiz').style.display = 'none';
+      resultWrap.style.display = 'block';
+
+      // focus for screen readers
+      resultCard.tabIndex = -1;
+      resultCard.focus();
+
+    }
+
+    function restart(){
+      idx = 0;
+      for(let i=0;i<answers.length;i++) answers[i]=null;
+      document.getElementById('quiz').style.display = '';
+      resultWrap.style.display = 'none';
+      renderQuestion();
+    }
+
+    // tiny animation when switching
+    function animateFlash(){
+      const panel = document.querySelector('.question-panel');
+      panel.animate([{transform:'translateY(6px)',opacity:0.9},{transform:'translateY(0)',opacity:1}],{duration:260,easing:'cubic-bezier(0.2,0.9,0.2,1)'});
+    }
+
+    // keyboard support
+    window.addEventListener('keydown', (e)=>{
+      if (resultWrap.style.display === 'block') return; // ignore when in result
+      if (['1','2','3'].includes(e.key)){
+        const i = Number(e.key)-1;
+        const btn = Array.from(optsEl.children).find(c=>Number(c.dataset.idx)===i);
+        if (btn) btn.click();
+      }
+      if (e.key === 'Enter'){
+        nextBtn.click();
+      }
+      if (e.key === 'ArrowLeft') prevBtn.click();
+      if (e.key === 'ArrowRight') nextBtn.click();
+    });
+
+    // attach buttons
+    prevBtn.addEventListener('click', prev);
+    nextBtn.addEventListener('click', next);
+    restartBtn.addEventListener('click', restart);
+    shareBtn.addEventListener('click', ()=>{
+      const score = answers.reduce((s,a,i)=> s + (a===QUESTIONS[i].a?1:0), 0);
+      const text = `Я набрал ${score}/${total} в викторине по внутреннему устройству компьютера!`;
+      navigator.clipboard?.writeText(text).then(()=>{
+        shareBtn.textContent = 'Скопировано!';
+        setTimeout(()=>shareBtn.textContent = 'Скопировать результат',1500);
+      }).catch(()=>{
+        alert(text);
+      });
+    });
+
+    // initial render
+    renderQuestion();
+
+    // small accessibility: focus first option when rendered
+    const observer = new MutationObserver(()=>{
+      const first = optsEl.querySelector('.opt');
+      if (first) first.focus();
+    });
+    observer.observe(optsEl,{childList:true});
+  </script>
+</body>
+</html>
